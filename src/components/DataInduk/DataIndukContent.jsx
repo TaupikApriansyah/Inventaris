@@ -1,166 +1,201 @@
-import React, { useState } from 'react';
-import { MODES, PRIMARY_COLOR } from '../constants'; 
+import React, { useState, useMemo } from 'react';
 
-import FormKIB from './FormKIB'; 
+// --- IMPOR KOMPONEN FORMULIR ---
+import FormKIBA from './FormKIBA'; 
+import FormKIBB from './FormKIBB'; 
+import FormKIBC from './FormKIBC'; 
 import FormKIR from './FormKIR'; 
-import FormEdit from './FormEdit';
+import FormEdit from './FormEdit'; 
 
-// --- DEFINISI KATEGORI ---
-const KATEGORI_OPTIONS = ['Semua', 'A', 'B', 'C']; // Opsi untuk dropdown
+// ----------------------------------------------------------------------
+// --- KONSTANTA & MODES ---
+// ----------------------------------------------------------------------
+const MODES = { 
+    VIEW_TABLE: 'VIEW_TABLE', EDIT_ITEM: 'EDIT_ITEM', VIEW_KIB_A: 'VIEW_KIB_A', 
+    VIEW_KIB_B: 'VIEW_KIB_B', VIEW_KIB_C: 'VIEW_KIB_C', ADD_KIB_A: 'ADD_KIB_A', 
+    ADD_KIB_B: 'ADD_KIB_B', ADD_KIB_C: 'ADD_KIB_C', ADD_KIR: 'ADD_KIR',
+};
+const PRIMARY_COLOR = 'indigo'; 
 
-// --- FUNGSI UTILITY UNTUK MENENTUKAN KATEGORI ABC ---
+// ----------------------------------------------------------------------
+// --- UTILITY FUNCTIONS ---
+// ----------------------------------------------------------------------
+
 const getKategoriABC = (nilaiNumerik) => {
-    if (nilaiNumerik > 50000000) {
-        return 'A'; 
-    } else if (nilaiNumerik > 5000000) {
-        return 'B'; 
-    } else {
-        return 'C'; 
+    if (nilaiNumerik > 500000000) { return 'A'; } 
+    if (nilaiNumerik > 50000000) { return 'B'; } 
+    return 'C'; 
+};
+
+const getActiveKibType = (tab) => {
+    if (tab === 'KIB A') return 'A';
+    if (tab === 'KIB B') return 'B';
+    if (tab === 'KIB C') return 'C';
+    return null;
+};
+
+const getKIBColor = (subJenis) => {
+    switch (subJenis) {
+        case 'Tanah': return 'text-green-700 border border-green-300 bg-green-50 rounded-full px-2 py-0.5';
+        case 'Mesin': return 'text-blue-700 border border-blue-300 bg-blue-50 rounded-full px-2 py-0.5';
+        case 'Gedung': return 'text-orange-700 border border-orange-300 bg-orange-50 rounded-full px-2 py-0.5';
+        default: return 'text-gray-600 border border-gray-300 bg-gray-100 rounded-full px-2 py-0.5';
     }
 };
 
-// --- DATA INIAL UNTUK DEMO ---
+const getKIBConfig = (kibType) => {
+    switch (kibType) {
+        case 'A':
+            return {
+                specialHeader: 'Detail Tanah',
+                specialHeaders: ['Ukuran (m²)', 'Status Tanah', 'No. Sertifikat'],
+                getData: (item) => [item.ukuran || '-', item.status_tanah || '-', item.no_sertifikat || '-'],
+            };
+        case 'B':
+            return {
+                specialHeader: 'Detail Mesin/Peralatan',
+                specialHeaders: ['No. Rangka', 'No. Mesin', 'No. Pabrik'],
+                // Pastikan menggunakan field yang sama dengan data form KIB B
+                getData: (item) => [item.nomor_rangka || '-', item.nomor_mesin || '-', item.nomor_pabrik || '-'],
+            };
+        case 'C':
+            return {
+                specialHeader: 'Detail Bangunan',
+                specialHeaders: ['Konstruksi', 'Luas Lantai', 'No. Dokumen'],
+                getData: (item) => [item.bahan || '-', item.luas_lantai || '-', item.no_dokumen || '-'],
+            };
+        default:
+            return { specialHeader: 'Detail Spesifik', specialHeaders: [], getData: () => [] };
+    }
+};
+
 const initialDataItems = [
-    // Contoh 1: Kategori A (450 Juta)
     {
-        id: 1, jenis: 'KIB', kode: '1.03.01.02.001', nama: 'Mobil Dinas Sedan', noreg: '001/A',
-        merk: 'Toyota Camry', lokasi: 'Kantor Utama', nopol: 'B 1000 ABC',
-        norangka: 'MT1234567890RNG', nobpkb: 'BPKB99001', jumlah: 1, satuan: 'Unit',
-        nilai: 'Rp 450.000.000', nilaiNumerik: 450000000, tahun: 2020,
-        asal_usul: 'Pembelian', status_penggunaan: 'Digunakan Sendiri',
-        kondisi: 'Baik', no_seri: '-', ukuran: '-', bahan: 'Besi/Logam',
-        keterangan: 'Aset Operasional Kepala Divisi.',
-        kategori_abc: getKategoriABC(450000000)
+        id: 1, jenis: 'KIB', sub_jenis: 'Tanah', kib_type: 'A', kode: '1.01.01.01.001', nama: 'Tanah Kantor Utama', noreg: '001/T',
+        merk: '-', lokasi: 'Jl. Sudirman No. 12', jumlah: 1, satuan: 'Bidang',
+        nilai: 'Rp 900.000.000', nilaiNumerik: 900000000, tahun: 2018, asal_usul: 'Pembelian', kondisi: 'Baik',
+        kategori_abc: getKategoriABC(900000000), ukuran: '5000 m²', status_tanah: 'Hak Milik', no_sertifikat: 'SHM-1234',
     },
-    // Contoh 2: Kategori B (50 Juta)
     {
-        id: 2, jenis: 'KIB', kode: '1.03.02.01.001', nama: 'Komputer Desktop Set', noreg: '002/B',
-        merk: 'Dell Optiplex 7000', lokasi: 'Ruangan IT', nopol: '-',
-        norangka: '-', nobpkb: '-', jumlah: 5, satuan: 'Unit',
-        nilai: 'Rp 50.000.000', nilaiNumerik: 50000000, tahun: 2022,
-        asal_usul: 'Pembelian', status_penggunaan: 'Digunakan Sendiri',
-        kondisi: 'Kurang Baik', no_seri: 'PC98765A', ukuran: 'Standar',
-        bahan: 'Plastik/Logam', keterangan: '5 Unit komputer untuk Staf IT.',
-        kategori_abc: getKategoriABC(50000000) 
+        id: 2, jenis: 'KIB', sub_jenis: 'Mesin', kib_type: 'B', kode: '1.03.01.02.001', nama: 'Mobil Dinas Sedan', noreg: '001/A',
+        merk: 'Toyota Camry', lokasi: 'Kantor Utama', jumlah: 1, satuan: 'Unit', 
+        nilai: 'Rp 450.000.000', nilaiNumerik: 450000000, tahun: 2020, kondisi: 'Baik',
+        kategori_abc: getKategoriABC(450000000), nomor_rangka: 'MT1234567890RNG', nomor_mesin: 'ENG987654321', nomor_pabrik: 'PBRK001'
     },
-    // Contoh 3: Kategori C (2.5 Juta)
     {
-        id: 4, jenis: 'KIB', kode: '1.03.02.01.005', nama: 'Mouse Komputer', noreg: '004/M',
-        merk: 'Logitech', lokasi: 'Ruangan IT', nopol: '-',
-        norangka: '-', nobpkb: '-', jumlah: 50, satuan: 'Unit',
-        nilai: 'Rp 2.500.000', nilaiNumerik: 2500000, tahun: 2023,
-        asal_usul: 'Pembelian', status_penggunaan: 'Digunakan Sendiri',
-        kondisi: 'Baik', no_seri: '-', ukuran: 'Kecil', bahan: 'Plastik',
-        keterangan: 'Stok mouse untuk cadangan.',
-        kategori_abc: getKategoriABC(2500000)
-    },
-    // Contoh 4: Item KIR (Kategori C)
-    {
-        id: 5, jenis: 'KIR', kode: '1.03.02.05.006', nama: 'Tanaman Hias Ruangan', noreg: '005/T',
-        merk: 'Lokal', lokasi: 'Lobi', nopol: '-',
-        norangka: '-', nobpkb: '-', jumlah: 5, satuan: 'Pot',
-        nilai: 'Rp 500.000', nilaiNumerik: 500000, tahun: 2024,
-        asal_usul: 'Pembelian', status_penggunaan: 'Digunakan Sendiri',
-        kondisi: 'Baik', no_seri: '-', ukuran: 'Sedang', bahan: 'Plastik',
-        keterangan: 'Hanya dicatat di KIR.',
-        kategori_abc: getKategoriABC(500000)
+        id: 5, jenis: 'KIR', sub_jenis: '-', kib_type: null, kode: '1.03.02.05.005', nama: 'Kursi Staf Putar', noreg: '003/C',
+        merk: 'IKEA MARKUS', lokasi: 'Ruang Staf', jumlah: 10, satuan: 'Buah',
+        nilai: 'Rp 12.000.000', nilaiNumerik: 12000000, tahun: 2021, kondisi: 'Baik', kategori_abc: getKategoriABC(12000000)
     },
 ];
 
-const DataIndukContent = ({ initialMode = MODES.VIEW_TABLE }) => {
+// ----------------------------------------------------------------------
+// --- KOMPONEN UTAMA DataIndukContent ---
+// ----------------------------------------------------------------------
+
+const DataIndukContent = ({ initialMode = MODES.VIEW_KIB_B }) => { 
     const [dataItems, setDataItems] = useState(initialDataItems); 
     const [mode, setMode] = useState(initialMode);
-    const [activeTab, setActiveTab] = useState('KIB'); 
     const [itemToEdit, setItemToEdit] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     
-    // --- STATE BARU UNTUK DROPDOWN KATEGORI ---
-    const [activeCategory, setActiveCategory] = useState('Semua'); 
+    // Tentukan Tab Aktif berdasarkan Mode
+    const activeTab = useMemo(() => {
+        if (mode === MODES.ADD_KIR || mode === MODES.VIEW_TABLE || (mode.startsWith('VIEW') && mode.endsWith('KIR'))) return 'KIR';
+        if (mode.endsWith('KIB_A') || mode.startsWith('ADD_KIB_A')) return 'KIB A';
+        if (mode.endsWith('KIB_B') || mode.startsWith('ADD_KIB_B')) return 'KIB B';
+        if (mode.endsWith('KIB_C') || mode.startsWith('ADD_KIB_C')) return 'KIB C';
+        return 'KIB B'; 
+    }, [mode]);
 
-    const getNextId = () => dataItems.length > 0 ? Math.max(...dataItems.map(item => item.id)) + 1 : 1;
+    const setTabAndMode = (tab, newMode) => {
+        setSearchTerm(''); 
+        setMode(newMode);
+    }
+    
+    // Penyaringan data: Kunci perbaikan agar data tidak bocor antar tab
+    const filteredItems = useMemo(() => {
+        return dataItems.filter(item => {
+            const matchesSearch = item.nama.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                 item.kode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                 item.kategori_abc.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const targetKibType = getActiveKibType(activeTab);
+            
+            if (activeTab === 'KIR') {
+                return matchesSearch && item.jenis === 'KIR';
+            } else if (targetKibType) {
+                // Kunci: Filter berdasarkan jenis KIB (KIB) DAN tipe KIB (A/B/C)
+                return matchesSearch && item.jenis === 'KIB' && item.kib_type === targetKibType;
+            }
+            return matchesSearch;
+        });
+    }, [dataItems, searchTerm, activeTab]);
 
-    // --- MODIFIKASI FUNGSI FILTER ITEMS ---
-    const filteredItems = dataItems.filter(item => {
-        const matchesSearch = item.nama.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              item.kode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                              item.kategori_abc.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        // 1. Filter berdasarkan Tab (KIB hanya menampilkan KIB, KIR menampilkan semua)
-        const matchesTab = activeTab === 'KIR' || item.jenis === 'KIB';
-
-        // 2. Filter berdasarkan Kategori ABC
-        const matchesCategory = activeCategory === 'Semua' || item.kategori_abc === activeCategory;
-        
-        return matchesSearch && matchesTab && matchesCategory; 
-    });
-
-    // --- LOGIKA PENYIMPANAN DATA (TIDAK BERUBAH) ---
+    // --- Logika CRUD ---
     const handleSaveNewItem = (newItem) => {
-        const nextId = getNextId();
-        let formattedNewItem = {};
-        
-        const numericValue = Number(newItem.nilai_perolehan || newItem.nilai || newItem.harga_perolehan || 0);
+        const nilaiNumerik = parseInt(newItem.nilai_perolehan, 10) || 0;
+        const newId = dataItems.reduce((max, item) => Math.max(max, item.id), 0) + 1;
 
-        if (activeTab === 'KIB' || newItem.jenis === 'KIB') {
-            const yearValue = newItem.tanggal_perolehan ? new Date(newItem.tanggal_perolehan).getFullYear() : (newItem.tahun || new Date().getFullYear());
+        // Ambil kibType dari form
+        const kibType = newItem.kibType || null; 
+        let subJenis = kibType ? (kibType === 'A' ? 'Tanah' : (kibType === 'B' ? 'Mesin' : 'Gedung')) : 'Inventaris Ruangan'; 
 
-            formattedNewItem = {
-                id: nextId,
-                jenis: 'KIB', 
-                kode: newItem.kode_barang || newItem.kode,
-                nama: newItem.nama_barang || newItem.nama,
-                noreg: newItem.nomor_register || newItem.noreg || '-',
-                merk: newItem.merek_tipe || newItem.merk || '-',
-                lokasi: newItem.lokasi || 'Gudang',
-                
-                nopol: newItem.nomor_polisi || '-',
-                norangka: newItem.nomor_rangka || '-',
-                nobpkb: newItem.nomor_bpkb || '-',
-                
-                jumlah: Number(newItem.jumlah),
-                satuan: newItem.satuan || 'Unit',
-                nilai: `Rp ${numericValue.toLocaleString('id-ID')}`,
-                nilaiNumerik: numericValue,
-                tahun: yearValue,
-                asal_usul: newItem.cara_perolehan || 'Pembelian',
-                status_penggunaan: newItem.status_penggunaan || 'Digunakan Sendiri',
-                
-                kondisi: newItem.kondisi || 'Baik', 
-                no_seri: newItem.no_seri_pabrik || newItem.no_seri || '-',
-                ukuran: newItem.ukuran || '-',
-                bahan: newItem.bahan || '-',
-                kategori_abc: getKategoriABC(numericValue), 
-                keterangan: newItem.keterangan || '-'
-            };
-        } else { // Jika input dari Form KIR
-            formattedNewItem = {
-                id: nextId,
-                jenis: 'KIR', 
-                nama: newItem.nama_barang,          
-                merk: newItem.merek_model || '-',   
-                no_seri: newItem.no_seri_pabrik || '-', 
-                ukuran: newItem.ukuran || '-',      
-                bahan: newItem.bahan || '-',        
-                tahun: newItem.tahun_pembuatan,     
-                kode: newItem.kode_barang,          
-                jumlah: Number(newItem.jumlah_barang),
-                noreg: newItem.no_register || '-',  
-                nilai: `Rp ${numericValue.toLocaleString('id-ID')}`, 
-                nilaiNumerik: numericValue,
-                kondisi: newItem.keadaan_barang,    
-                kategori_abc: getKategoriABC(numericValue), 
-                keterangan: newItem.keterangan_mutasi || '-' 
-            };
+        const completeItem = {
+            id: newId,
+            jenis: kibType ? 'KIB' : 'KIR',
+            sub_jenis: subJenis,
+            kib_type: kibType, // SANGAT PENTING: Untuk filtering
+            kode: newItem.kode_barang || '—',
+            nama: newItem.nama_barang,
+            noreg: newItem.nomor_register || '—',
+            merk: newItem.merek_tipe || newItem.merk || '—', 
+            lokasi: newItem.lokasi || '—',
+            jumlah: newItem.jumlah || 1, 
+            satuan: newItem.satuan || (kibType === 'A' ? 'Bidang' : 'Unit'),
+            
+            nilai: `Rp ${nilaiNumerik.toLocaleString('id-ID')}`, 
+            nilaiNumerik: nilaiNumerik,
+            tahun: parseInt(newItem.tahun_perolehan, 10) || new Date().getFullYear(),
+            asal_usul: newItem.asal_usul || 'Pembelian',
+            kondisi: newItem.kondisi || 'Baik',
+            kategori_abc: getKategoriABC(nilaiNumerik),
+
+            // Gabungkan semua field spesifik dari form (misal: nomor_rangka, ukuran)
+            ...newItem, 
+        };
+
+        setDataItems(prev => [...prev, completeItem]);
+
+        let newMode;
+        if (completeItem.jenis === 'KIR') {
+             newMode = MODES.VIEW_TABLE;
+        } else {
+             newMode = `VIEW_KIB_${completeItem.kib_type}`;
         }
-
-        setDataItems(prev => [formattedNewItem, ...prev]); 
-        setMode(MODES.VIEW_TABLE);
-        setActiveTab(formattedNewItem.jenis === 'KIB' ? 'KIB' : 'KIR'); 
+        
+        setMode(newMode); 
+        
+        alert(`✅ Data ${kibType ? 'KIB ' + kibType : 'KIR'} "${completeItem.nama}" berhasil disimpan!`);
     };
-
+    
+    // Logika Update (Edit)
+    const handleUpdateItem = (updatedItem) => {
+        setDataItems(prev => 
+            prev.map(item => (item.id === updatedItem.id ? updatedItem : item))
+        );
+        
+        const backMode = updatedItem.jenis === 'KIR' 
+            ? MODES.VIEW_TABLE 
+            : `VIEW_KIB_${updatedItem.kib_type}`;
+        setMode(backMode);
+        alert(`✏️ Data ${updatedItem.nama} berhasil diperbarui!`);
+    };
+    
     const handleDelete = (itemId, itemName) => {
         if (window.confirm(`Hapus data "${itemName}"? Tindakan ini tidak dapat dibatalkan.`)) {
             setDataItems(prev => prev.filter(item => item.id !== itemId));
+            alert(`🗑️ Data "${itemName}" berhasil dihapus.`);
         }
     };
     
@@ -169,252 +204,240 @@ const DataIndukContent = ({ initialMode = MODES.VIEW_TABLE }) => {
         setMode(MODES.EDIT_ITEM);
     };
 
-    const handleSaveEdit = (updatedItem) => {
-        const numericValue = updatedItem.nilaiNumerik || Number(updatedItem.nilai?.replace(/[^0-9,-]+/g,"").replace(",", ".") || 0);
+    // --- RENDER FUNCTIONS ---
+    
+    const getTabClassName = (tabName) => {
+        const isActive = activeTab === tabName;
+        let color = 'text-gray-500 hover:text-indigo-700 border-transparent';
+        
+        if (tabName === 'KIB A') color = isActive ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500 hover:text-green-700 border-transparent';
+        if (tabName === 'KIB B') color = isActive ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-blue-700 border-transparent';
+        if (tabName === 'KIB C') color = isActive ? 'text-orange-600 border-b-2 border-orange-600' : 'text-gray-500 hover:text-orange-700 border-transparent';
+        if (tabName === 'KIR') color = isActive ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-700 border-transparent';
 
-        const savedItem = {
-            ...updatedItem,
-            nilai: `Rp ${numericValue.toLocaleString('id-ID')}`,
-            nilaiNumerik: numericValue,
-            kategori_abc: getKategoriABC(numericValue)
-        };
+        return `px-4 py-2 text-sm font-bold transition-all duration-200 border-b-2 ${color}`;
+    }
 
-        setDataItems(prev => prev.map(item => {
-            if (item.id === savedItem.id) return savedItem;
-            return item;
-        }));
-        setItemToEdit(null);
-        setMode(MODES.VIEW_TABLE);
+    const renderHeader = () => {
+        const addMode = activeTab === 'KIR' ? MODES.ADD_KIR : 
+                        activeTab === 'KIB A' ? MODES.ADD_KIB_A :
+                        activeTab === 'KIB B' ? MODES.ADD_KIB_B :
+                        MODES.ADD_KIB_C;
+
+        const baseExportClass = "flex items-center px-4 py-2.5 rounded-lg font-medium transition duration-200 text-sm bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 shadow-sm";
+
+        return (
+            <>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-6 border-b border-gray-100 mb-4">
+                    <div className="mb-4 md:mb-0">
+                        <h1 className="text-4xl font-light text-gray-900 tracking-tight">
+                            Data Aset <span className="font-bold text-indigo-600">{activeTab}</span>
+                        </h1>
+                        <p className="text-gray-500 mt-2 text-sm">Kelola data aset inventaris negara (KIB/KIR).</p>
+                    </div>
+                    
+                    <div className="flex flex-wrap space-x-3">
+                         <button onClick={() => console.log('Export Excel')} className={baseExportClass}>
+                             <span className="mr-2 text-lg">⬇️</span> Export Excel Data
+                         </button>
+                         <button onClick={() => console.log('Export PDF')} className={baseExportClass}>
+                             <span className="mr-2 text-lg">📄</span> Export PDF Dokumen
+                         </button>
+                         <button
+                             onClick={() => setMode(addMode)}
+                             className={`bg-${PRIMARY_COLOR}-600 hover:bg-${PRIMARY_COLOR}-700 text-white px-5 py-2.5 rounded-lg font-bold transition duration-200 flex items-center shadow-md`}
+                         >
+                             <span className="text-xl mr-2 pb-1">+</span> 
+                             {activeTab === 'KIR' ? 'Tambah Data KIR' : `Tambah Data ${activeTab}`}
+                         </button>
+                    </div>
+                </div>
+
+                <div className="flex space-x-6 w-full mb-4 border-b border-gray-200"> 
+                    <button onClick={() => setTabAndMode('KIB A', MODES.VIEW_KIB_A)} className={getTabClassName('KIB A')}>🌱 KIB A (Tanah)</button>
+                    <button onClick={() => setTabAndMode('KIB B', MODES.VIEW_KIB_B)} className={getTabClassName('KIB B')}>🔩 KIB B (Mesin)</button>
+                    <button onClick={() => setTabAndMode('KIB C', MODES.VIEW_KIB_C)} className={getTabClassName('KIB C')}>🏗️ KIB C (Gedung)</button>
+                    <button onClick={() => setTabAndMode('KIR', MODES.VIEW_TABLE)} className={getTabClassName('KIR')}>📄 KIR (Inventaris Ruangan)</button>
+                </div>
+
+                <div className="mb-6">
+                     <input 
+                         type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                         placeholder={`Cari data dalam ${activeTab} (Nama, Kode, Kategori ABC)...`}
+                         className="px-4 py-2 w-full md:w-96 rounded-lg border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                     />
+                </div>
+            </>
+        );
     };
 
-    // --- RENDER TABEL KIB (TIDAK BERUBAH) ---
-    const renderTableKIB = () => (
-        <div className="overflow-x-auto border border-gray-400 mt-4">
-            <table className="min-w-full table-auto border-collapse border border-gray-400">
-                <thead className="bg-gray-100 text-center text-xs font-bold text-gray-800">
-                    <tr>
-                        <th colSpan="2" className="border border-gray-600 px-2 py-2">Penggolongan dan Kodefikasi Barang</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2 w-20">NIBAR</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Nomor Register</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Spesifikasi Nama Barang</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Spesifikasi Lainnya</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Merek/Tipe</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Lokasi</th>
-                        <th colSpan="3" className="border border-gray-600 px-2 py-2">Kendaraan Dinas*)</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Kategori ABC</th>
-                        <th colSpan="2" className="border border-gray-600 px-2 py-2">Jumlah</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Harga Satuan</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Nilai Perolehan</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Cara Perolehan</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Tahun Perolehan</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2">Keterangan</th>
-                        <th rowSpan="2" className="border border-gray-600 px-2 py-2 bg-gray-200">Aksi</th>
-                    </tr>
-                    <tr>
-                        <th className="border border-gray-600 px-2 py-2">Kode Barang</th>
-                        <th className="border border-gray-600 px-2 py-2">Nama Barang</th>
-                        <th className="border border-gray-600 px-2 py-2">Nomor Polisi</th>
-                        <th className="border border-gray-600 px-2 py-2">Nomor Rangka</th>
-                        <th className="border border-gray-600 px-2 py-2">Nomor BPKB</th>
-                        <th className="border border-gray-600 px-2 py-2">Jumlah</th>
-                        <th className="border border-gray-600 px-2 py-2">Satuan</th>
-                    </tr>
-                </thead>
+    const renderTableKIB = () => {
+        const targetKibType = getActiveKibType(activeTab);
+        const config = getKIBConfig(targetKibType);
+        const totalCols = 10 + config.specialHeaders.length; 
 
-                <tbody className="text-xs">
-                    {filteredItems.length > 0 ? filteredItems.map((item, index) => (
-                        <tr key={item.id} className={`hover:bg-gray-50 transition duration-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <td className="border border-gray-400 px-2 py-2 font-medium">{item.kode}</td>
-                            <td className="border border-gray-400 px-2 py-2">{item.nama}</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">-</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.noreg}</td>
-                            <td className="border border-gray-400 px-2 py-2">{item.nama}</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">-</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.merk}</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.lokasi}</td>
-                            
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.nopol}</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.norangka}</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.nobpkb}</td>
-                            
-                            <td className="border border-gray-400 px-2 py-2 text-center font-bold">{item.kategori_abc}</td> 
-
-                            <td className="border border-gray-400 px-2 py-2 text-center font-bold">{item.jumlah}</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.satuan}</td>
-                            
-                            <td className="border border-gray-400 px-2 py-2 text-right">
-                                {item.nilaiNumerik && item.jumlah 
-                                    ? `Rp ${(item.nilaiNumerik / item.jumlah).toLocaleString('id-ID')}` 
-                                    : '-'}
-                            </td>
-                            <td className="border border-gray-400 px-2 py-2 text-right font-medium">{item.nilai}</td>
-                            
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.asal_usul}</td>
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.tahun}</td>
-                            
-                            <td className="border border-gray-400 px-2 py-2 text-center">{item.keterangan}</td>
-
-                            <td className="border border-gray-400 px-2 py-2 text-center">
-                                <div className="flex items-center justify-center space-x-1">
-                                    <button onClick={() => handleStartEdit(item)} className={`text-${PRIMARY_COLOR}-600 hover:text-${PRIMARY_COLOR}-800 p-1`}>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                    </button>
-                                    <button onClick={() => handleDelete(item.id, item.nama)} className="text-red-600 hover:text-red-800 p-1">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
-                                </div>
-                            </td>
+        return (
+            <div className="overflow-x-auto border border-gray-200 rounded-lg"> 
+                <table className="min-w-full table-auto border-collapse">
+                    <thead className="bg-gray-50 text-center text-xs font-semibold text-gray-700 uppercase border-b border-gray-300 sticky top-0">
+                        <tr>
+                            <th colSpan="2" className="border-r border-gray-200 px-3 py-3">Penggolongan</th>
+                            <th rowSpan="2" className="border-r border-gray-200 px-3 py-3 bg-indigo-50 text-indigo-700">Jenis KIB</th> 
+                            <th rowSpan="2" className="border-r border-gray-200 px-3 py-3">No. Register</th>
+                            <th rowSpan="2" className="border-r border-gray-200 px-3 py-3 w-40">Nama Barang / Spesifikasi</th>
+                            <th colSpan={config.specialHeaders.length} className="border-r border-gray-200 px-3 py-3 bg-red-50 text-red-700">{config.specialHeader}</th> 
+                            <th colSpan="2" className="border-r border-gray-200 px-3 py-3">Fisik</th>
+                            <th rowSpan="2" className="border-r border-gray-200 px-3 py-3 w-16 bg-yellow-50 text-yellow-700">Kategori ABC</th> 
+                            <th rowSpan="2" className="border-r border-gray-200 px-3 py-3 w-28">Nilai Perolehan</th>
+                            <th rowSpan="2" className="px-3 py-3 bg-gray-100">Aksi</th>
                         </tr>
-                    )) : (
-                        <tr><td colSpan="19" className="text-center py-6 text-gray-500 italic">Tidak ada data KIB yang cocok.</td></tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
-    );
+                        <tr>
+                            <th className="border-r border-gray-200 px-3 py-2">Kode Barang</th>
+                            <th className="border-r border-gray-200 px-3 py-2">Tahun Perolehan</th>
+                            
+                            {config.specialHeaders.map((header, index) => (
+                                <th key={index} className="border-r border-gray-200 px-3 py-2 bg-red-100 text-red-800">
+                                    {header}
+                                </th>
+                            ))}
 
-    // --- RENDER TABEL KIR (TIDAK BERUBAH) ---
+                            <th className="border-r border-gray-200 px-3 py-2">Jml</th>
+                            <th className="border-r border-gray-200 px-3 py-2">Kondisi</th>
+                        </tr>
+                    </thead>
+                    <tbody className="text-xs">
+                        {filteredItems.length > 0 ? filteredItems.map((item, index) => (
+                            <tr key={item.id} className={`transition duration-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-indigo-50 border-b border-gray-100`}>
+                                <td className="border-r border-gray-100 px-3 py-3 font-mono text-center">{item.kode}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">{item.tahun}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">
+                                    <span className={`text-xs font-semibold ${getKIBColor(item.sub_jenis)}`}>
+                                        {item.kib_type}
+                                    </span>
+                                </td> 
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">{item.noreg}</td>
+                                <td className="border-r border-gray-100 px-3 py-3">{item.nama}</td>
+                                
+                                {config.getData(item).map((data, idx) => (
+                                    <td key={idx} className="border-r border-gray-100 px-3 py-3 text-center text-red-600">
+                                        {data}
+                                    </td>
+                                ))}
+
+                                <td className="border-r border-gray-100 px-3 py-3 text-center font-bold">{item.jumlah} {item.satuan}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">{item.kondisi}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center font-extrabold text-red-700 bg-yellow-100">{item.kategori_abc}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-right font-bold">{item.nilai}</td>
+                                <td className="px-3 py-3 text-center">
+                                    <div className="flex items-center justify-center space-x-2">
+                                        <button onClick={() => handleStartEdit(item)} className={`text-${PRIMARY_COLOR}-600 hover:text-${PRIMARY_COLOR}-800 text-xs`}>Edit</button>
+                                        <button onClick={() => handleDelete(item.id, item.nama)} className="text-red-600 hover:text-red-800 text-xs">Hapus</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr><td colSpan={totalCols} className="text-center py-10 text-gray-500 italic bg-white">Tidak ada data {activeTab} yang cocok.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+
     const renderTableKIR = () => (
-        <div className="overflow-x-auto border border-black mt-4 shadow-sm">
-            <table className="min-w-full table-auto border-collapse border border-black">
-                <thead className="bg-gray-200 text-center text-xs font-bold text-black uppercase tracking-tight">
+        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <table className="min-w-full table-auto border-collapse">
+                <thead className="bg-gray-50 text-center text-xs font-semibold text-gray-700 uppercase border-b border-gray-300 sticky top-0">
                     <tr>
-                        <th rowSpan="2" className="border border-black px-1 py-2 w-10">No. Urut</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2 w-48">Nama Barang /<br/>Jenis Barang</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Merek Model</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">No. Seri<br/>Pabrik</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Ukuran</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Bahan</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Tahun<br/>Pembuatan /<br/>Pembelian</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Nomor Kode<br/>Barang</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Kategori ABC</th> 
-                        <th rowSpan="2" className="border border-black px-2 py-2">Jumlah Barang<br/>Register</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Harga Beli /<br/>Perolehan</th>
-                        <th colSpan="3" className="border border-black px-1 py-1">Keadaan Barang</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2">Keterangan<br/>Mutasi</th>
-                        <th rowSpan="2" className="border border-black px-2 py-2 bg-gray-200">Aksi</th>
-                    </tr>
-                    <tr>
-                        <th className="border border-black px-1 py-1 w-12">Baik (B)</th>
-                        <th className="border border-black px-1 py-1 w-12">Kurang Baik (KB)</th>
-                        <th className="border border-black px-1 py-1 w-12">Rusak Berat (RB)</th>
+                        <th className="px-3 py-3 border-r border-gray-200">No</th>
+                        <th className="px-3 py-3 border-r border-gray-200">Nama Barang</th>
+                        <th className="px-3 py-3 border-r border-gray-200">Merek/Tipe</th>
+                        <th className="px-3 py-3 border-r border-gray-200">Kode Barang</th> 
+                        <th className="px-3 py-3 border-r border-gray-200">Tahun</th>
+                        <th className="px-3 py-3 border-r border-gray-200">Lokasi (Ruangan)</th>
+                        <th className="px-3 py-3 border-r border-gray-200">Kondisi</th> 
+                        <th className="px-3 py-3 border-r border-gray-200">Jumlah</th> 
+                        <th className="px-3 py-3 border-r border-gray-200">Nilai Perolehan</th>
+                        <th className="px-3 py-3 bg-gray-100">Aksi</th>
                     </tr>
                 </thead>
-                <tbody className="text-xs text-black">
-                    {filteredItems.length > 0 ? filteredItems.map((item, index) => (
-                        <tr key={item.id} className="hover:bg-gray-50 border-b border-black">
-                            <td className="border border-black px-2 py-2 text-center">{index + 1}</td>
-                            <td className="border border-black px-2 py-2 font-semibold">{item.nama}</td>
-                            <td className="border border-black px-2 py-2 text-center">{item.merk}</td>
-                            <td className="border border-black px-2 py-2 text-center">{item.no_seri || '-'}</td>
-                            <td className="border border-black px-2 py-2 text-center">{item.ukuran || '-'}</td>
-                            <td className="border border-black px-2 py-2 text-center">{item.bahan || '-'}</td>
-                            <td className="border border-black px-2 py-2 text-center">{item.tahun}</td>
-                            <td className="border border-black px-2 py-2 text-center font-mono">{item.kode}</td>
-                            <td className="border border-black px-2 py-2 text-center font-bold">{item.kategori_abc}</td> 
-                            <td className="border border-black px-2 py-2 text-center">{item.jumlah} / {item.noreg}</td>
-                            <td className="border border-black px-2 py-2 text-right">{item.nilai}</td>
-                            
-                            {/* CHECKLIST KONDISI */}
-                            <td className="border border-black px-2 py-2 text-center font-bold">{item.kondisi === 'Baik' ? 'v' : ''}</td>
-                            <td className="border border-black px-2 py-2 text-center font-bold">{item.kondisi === 'Kurang Baik' ? 'v' : ''}</td>
-                            <td className="border border-black px-2 py-2 text-center font-bold">{item.kondisi === 'Rusak Berat' ? 'v' : ''}</td>
-                            
-                            <td className="border border-black px-2 py-2 text-center">{item.keterangan}</td>
-                            <td className="border border-black px-2 py-2 text-center">
-                                <div className="flex items-center justify-center space-x-1">
-                                    <button onClick={() => handleStartEdit(item)} className={`text-${PRIMARY_COLOR}-600 hover:text-${PRIMARY_COLOR}-800 p-1`}>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                    </button>
-                                    <button onClick={() => handleDelete(item.id, item.nama)} className="text-red-600 hover:text-red-800 p-1">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    )) : (
-                        <tr><td colSpan="16" className="text-center py-8 text-gray-500 italic">Tidak ada data KIR yang cocok.</td></tr>
-                    )}
+                <tbody className="text-xs">
+                     {filteredItems.length > 0 ? filteredItems.map((item, index) => item.jenis === 'KIR' && (
+                             <tr key={item.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-indigo-50 border-b border-gray-100`}>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">{index + 1}</td>
+                                <td className="border-r border-gray-100 px-3 py-3">{item.nama}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">{item.merk}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center font-mono">{item.kode}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">{item.tahun}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center font-semibold">{item.lokasi}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center">{item.kondisi}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-center font-bold">{item.jumlah} {item.satuan}</td>
+                                <td className="border-r border-gray-100 px-3 py-3 text-right font-bold">{item.nilai}</td>
+                                 <td className="px-3 py-3 text-center">
+                                     <div className="flex items-center justify-center space-x-2">
+                                         <button onClick={() => handleStartEdit(item)} className={`text-${PRIMARY_COLOR}-600 hover:text-${PRIMARY_COLOR}-800 text-xs`}>Edit</button>
+                                         <button onClick={() => handleDelete(item.id, item.nama)} className="text-red-600 hover:text-red-800 text-xs">Hapus</button>
+                                     </div>
+                                </td>
+                             </tr>
+                        )) : (
+                            <tr><td colSpan="10" className="text-center py-10 text-gray-500 italic bg-white">Tidak ada data KIR yang cocok.</td></tr>
+                        )}
                 </tbody>
             </table>
         </div>
     );
 
-    const renderViewMode = () => (
-        <div className="bg-white rounded-xl shadow-lg p-6 min-h-[600px]">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-                <div>
-                    <h2 className="text-3xl font-extrabold text-gray-800">Data Induk (Master Data)</h2>
-                    <p className="text-gray-500 text-sm mt-1">Kelola data Aset Barang (KIB) dan Inventaris Ruangan (KIR).</p>
-                </div>
-                
-                <button
-                    onClick={() => setMode(activeTab === 'KIB' ? MODES.ADD_KIB : MODES.ADD_KIR)}
-                    className={`bg-${PRIMARY_COLOR}-600 hover:bg-${PRIMARY_COLOR}-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition duration-200 flex items-center mt-4 md:mt-0`}
-                >
-                    <span className="text-xl mr-2 pb-1">+</span> 
-                    {activeTab === 'KIB' ? 'Tambah Aset (KIB)' : 'Tambah Data KIR (Non-KIB)'}
-                </button>
+    const renderViewMode = () => {
+        const renderContentTable = activeTab === 'KIR' ? renderTableKIR() : renderTableKIB();
+        
+        return (
+            <div className="p-4 sm:p-8 min-h-[600px]"> 
+                {renderHeader()}
+                {renderContentTable}
             </div>
-
-            {/* TAB NAVIGATION */}
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit mb-6">
-                <button 
-                    onClick={() => { setActiveTab('KIB'); setActiveCategory('Semua'); }} // Reset kategori saat ganti tab
-                    className={`px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${
-                        activeTab === 'KIB' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                    📂 Data Aset Barang (KIB)
-                </button>
-                <button 
-                    onClick={() => { setActiveTab('KIR'); setActiveCategory('Semua'); }} // Reset kategori saat ganti tab
-                    className={`px-6 py-2 rounded-md text-sm font-bold transition-all duration-200 ${
-                        activeTab === 'KIR' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                    📄 Kartu Inventaris Ruangan (KIR)
-                </button>
-            </div>
-
-            {/* SEARCH & DROPDOWN KATEGORI */}
-            <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4 mb-4">
-                 <input 
-                    type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Cari data (Nama, Kode, Kategori ABC)..."
-                    className="px-4 py-2 w-full md:w-96 rounded-lg border border-gray-300 focus:ring-indigo-500"
-                />
-
-                {/* --- DROPDOWN KATEGORI ABC BARU --- */}
-                <select
-                    value={activeCategory}
-                    onChange={(e) => setActiveCategory(e.target.value)}
-                    className="px-4 py-2 rounded-lg border border-gray-300 bg-white focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                    {KATEGORI_OPTIONS.map(cat => (
-                        <option key={cat} value={cat}>
-                            {cat === 'Semua' ? 'Tampilkan Semua Kategori' : `Kategori ${cat}`}
-                        </option>
-                    ))}
-                </select>
-                {/* ---------------------------------- */}
-            </div>
-
-            {/* CONTENT */}
-            {activeTab === 'KIB' ? renderTableKIB() : renderTableKIR()}
-        </div>
-    );
+        );
+    };
 
     const renderContent = () => {
-        switch (mode) {
-            case MODES.ADD_KIB: return <FormKIB onSave={handleSaveNewItem} onCancel={() => setMode(MODES.VIEW_TABLE)} />;
-            case MODES.ADD_KIR: return <FormKIR onSave={handleSaveNewItem} onCancel={() => setMode(MODES.VIEW_TABLE)} />;
-            case MODES.EDIT_ITEM: return <FormEdit item={itemToEdit} onSave={handleSaveEdit} onCancel={() => setMode(MODES.VIEW_TABLE)} />;
-            default: return renderViewMode();
+        if (mode.startsWith('ADD') || mode === MODES.EDIT_ITEM) {
+            const getCancelMode = () => {
+                if (mode === MODES.ADD_KIB_A) return MODES.VIEW_KIB_A;
+                if (mode === MODES.ADD_KIB_B) return MODES.VIEW_KIB_B;
+                if (mode === MODES.ADD_KIB_C) return MODES.VIEW_KIB_C;
+                return MODES.VIEW_TABLE;
+            };
+
+            return (
+                <div className="p-8 min-h-[600px] bg-white rounded-lg shadow-lg">
+                    <h2 className="text-2xl font-bold mb-6 text-gray-800">Formulir {mode.startsWith('ADD') ? 'Tambah Data Baru' : 'Edit Data Aset'}</h2>
+                    <p className="text-gray-500 mb-6">Silakan lengkapi detail aset **{activeTab}** di bawah ini.</p>
+                    
+                    {mode === MODES.ADD_KIB_A && <FormKIBA onSave={handleSaveNewItem} onCancel={() => setMode(getCancelMode())} />}
+                    {mode === MODES.ADD_KIB_B && <FormKIBB onSave={handleSaveNewItem} onCancel={() => setMode(getCancelMode())} />}
+                    {mode === MODES.ADD_KIB_C && <FormKIBC onSave={handleSaveNewItem} onCancel={() => setMode(getCancelMode())} />}
+                    {mode === MODES.ADD_KIR && <FormKIR onSave={handleSaveNewItem} onCancel={() => setMode(getCancelMode())} />}
+                    
+                    {mode === MODES.EDIT_ITEM && (
+                        <FormEdit 
+                            item={itemToEdit} 
+                            onSave={handleUpdateItem} 
+                            onCancel={() => {
+                                const backMode = itemToEdit.jenis === 'KIR' 
+                                    ? MODES.VIEW_TABLE 
+                                    : `VIEW_KIB_${itemToEdit.kib_type}`;
+                                setMode(backMode);
+                            }} 
+                        />
+                    )}
+                </div>
+            );
         }
+        
+        return renderViewMode();
     };
     
-    return <div className="space-y-6">{renderContent()}</div>;
+    return <div className="p-4 bg-gray-50 min-h-screen">{renderContent()}</div>;
 };
 
 export default DataIndukContent;

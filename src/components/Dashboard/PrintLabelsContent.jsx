@@ -2,18 +2,71 @@ import React, { useState, useMemo } from 'react';
 // Diasumsikan PRIMARY_COLOR adalah 'indigo' atau 'blue' untuk Tailwind
 const PRIMARY_COLOR = 'indigo'; 
 
+// --- DATA DUMMY (DATA INDUK KIB B) ---
+// Data ini diperkaya dengan field yang dibutuhkan untuk pencetakan label
+const KIB_B_DATA_DUMMY = [
+    {
+        id: 101, 
+        nama: 'MOBIL DINAS SEDAN', // Digunakan di LabelTemplate sebagai item.nama
+        merek: 'Toyota Camry', 
+        tahun: 2020, // Digunakan di LabelTemplate sebagai item.tahun
+        kode: '1.03.01.02.001', // Digunakan di LabelTemplate sebagai item.kode
+        noreg: '0001', // Nomor Register / NUP, digunakan di LabelTemplate sebagai item.noreg
+        lokasi: 'Kantor Pusat', // Digunakan di LabelTemplate sebagai item.lokasi
+        nilaiNumerik: 450000000,
+        no_seri_pabrik: 'PBRK001' // Digunakan sebagai No. Seri Barcode
+    },
+    {
+        id: 102, 
+        nama: 'KOMPUTER PC STAF', 
+        merek: 'HP ProDesk', 
+        tahun: 2022, 
+        kode: '1.03.02.04.005',
+        noreg: '0002',
+        lokasi: 'Ruang Staf 1',
+        nilaiNumerik: 12000000,
+        no_seri_pabrik: 'PC-2022-005'
+    },
+    {
+        id: 103, 
+        nama: 'MESIN FOTOCOPY DIGITAL', 
+        merek: 'Canon iR', 
+        tahun: 2021, 
+        kode: '1.03.01.02.010',
+        noreg: '0003',
+        lokasi: 'Ruang Arsip',
+        nilaiNumerik: 85000000,
+        no_seri_pabrik: 'MFP-C-010'
+    },
+    // Item Rusak/0 Nilai (Tidak seharusnya dicetak)
+    {
+        id: 104, 
+        nama: 'KEYBOARD RUSAK', 
+        merek: 'Logitech', 
+        tahun: 2021, 
+        kode: '1.03.02.04.010',
+        noreg: '0004',
+        lokasi: 'Gudang',
+        nilaiNumerik: 0,
+        no_seri_pabrik: 'KB-2021-001'
+    },
+];
+// --------------------------------------------------------------------------
+
 // --- Komponen Sederhana untuk Layout Label Cetak yang SAMA PERSIS dengan Contoh ---
 const LabelTemplate = ({ item }) => {
-    // Styling label 3x1 (3 kolom). Lebar dan tinggi disesuaikan untuk kepadatan.
-    // 'break-inside-avoid-page' penting agar label tidak terpotong di tengah halaman
-    // CATATAN: Lebar dan tinggi disesuaikan untuk simulasi A4 3x1
+    // Menggunakan item.noreg untuk register NUP (di bawah Kode)
+    const registerNumber = item.noreg || '-';
+    // Menggunakan item.no_seri_pabrik untuk Kode Barcode (di bawah Barcode)
+    const barcodeNumber = item.no_seri_pabrik || 'N/A';
+
     return (
         <div className="label-item w-[280px] h-[95px] border border-gray-500 p-1 bg-white break-inside-avoid-page text-gray-900">
             
             {/* BARIS 1: Logo, Instansi, dan Teks ASET DAERAH */}
             <div className="flex items-center justify-between border-b border-gray-400 pb-0.5 mb-0.5">
                 <div className="flex items-center">
-                    {/* Placeholder Logo (Ganti dengan <img> jika Anda punya file logo) */}
+                    {/* Placeholder Logo */}
                     <div className="w-4 h-4 mr-1 bg-gray-400 rounded-full flex-shrink-0"></div> 
                     <span className="font-semibold text-[8px] leading-none">PEMERINTAH KOTA BANDUNG</span>
                 </div>
@@ -27,12 +80,11 @@ const LabelTemplate = ({ item }) => {
                 {/* Kolom Kiri: Barcode Simultan (Statis) */}
                 <div className="flex flex-col items-center justify-center w-20 h-full border border-gray-400 p-0.5 flex-shrink-0">
                     <div className="w-full h-8 bg-gray-300 mb-0.5"> 
-                        {/* Area untuk Barcode/QR Code. Ganti dengan library generator jika perlu. */}
+                        {/* Area untuk Barcode/QR Code. */}
                     </div>
-                    {/* Menggunakan kode register sebagai simulasi data barcode (font kecil dan tebal) */}
-                    {/* MENGGUNAKAN item.noreg UNTUK NOMOR REGISTER */}
+                    {/* Menggunakan no_seri_pabrik sebagai data barcode di bawah kode batang */}
                     <p className="text-[7px] font-mono leading-none font-bold">
-                        {item.noreg || 'N/A'} 
+                        {barcodeNumber} 
                     </p>
                 </div>
                 
@@ -44,7 +96,7 @@ const LabelTemplate = ({ item }) => {
                     </p>
                     {/* MENGGUNAKAN item.noreg UNTUK NOMOR REGISTER / NUP */}
                     <p className="text-[9px] leading-tight">
-                        <span className="w-10 inline-block font-bold">Reg</span>: <span className='font-semibold'>{item.noreg || '-'}</span>
+                        <span className="w-10 inline-block font-bold">Reg</span>: <span className='font-semibold'>{registerNumber}</span>
                     </p>
                     <p className="text-[9px] leading-tight">
                         <span className="w-10 inline-block font-bold">Tahun</span>: <span className='font-semibold'>{item.tahun || 'N/A'}</span>
@@ -198,23 +250,26 @@ const PrintConfiguration = ({ selectedCount, onPrint }) => {
 }
 
 // --- Komponen Utama ---
-const PrintLabelsContent = ({ dataItems }) => {
+// dataItems dihilangkan dari props, diganti dengan KIB_B_DATA_DUMMY
+const PrintLabelsContent = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     // Dummy state untuk meniru filter di gambar
     const [assetType, setAssetType] = useState('KIB B');
-    const [roomLocation, setRoomLocation] = useState('Ruang Camat');
+    const [roomLocation, setRoomLocation] = useState('Semua Ruangan'); // Ubah default
 
-    // Filter hanya aset KIB (jenis != KIR) yang memiliki nilai numerik > 0
+    // Data KIB B dari data dummy
+    const dataItems = KIB_B_DATA_DUMMY; 
+
+    // Filter aset yang bernilai numerik > 0
     const printableItems = useMemo(() => 
-        // Mengubah filter agar sesuai dengan data dummy: 
-        // Filter item dengan nilaiNumerik > 0
-        dataItems.filter(item => item.nilaiNumerik > 0 && 
-            // Filter berdasarkan assetType (hanya untuk tampilan KIB B/E di UI, tidak diimplementasikan penuh)
-            (assetType === 'KIB B' ? item.kode.includes('02.06') || item.kode.includes('01.01') : true) &&
-            // Filter Lokasi (tidak diimplementasikan penuh, hanya menampilkan semua item yang 'Baik' / tersedia)
-            (roomLocation === 'Ruang Camat' ? item.lokasi === 'Kantor' || item.lokasi === 'Gudang' : true)
+        dataItems.filter(item => 
+            item.nilaiNumerik > 0 
+            // Tambahkan logika filter berdasarkan Lokasi Ruangan yang dipilih (jika tidak 'Semua Ruangan')
+            && (roomLocation === 'Semua Ruangan' || item.lokasi === roomLocation)
+            // Filter KIB B/E dummy (tidak perlu diimplementasikan logika kode barang yang kompleks)
+            && (assetType === 'KIB B' ? true : false) 
         )
-    , [dataItems, assetType, roomLocation]);
+    , [dataItems, assetType, roomLocation]); // DataItems sekarang ada di scope ini
 
     const handleToggleSelect = (id) => {
         setSelectedIds(prev => 
@@ -236,21 +291,17 @@ const PrintLabelsContent = ({ dataItems }) => {
     const selectedItems = printableItems.filter(item => selectedIds.includes(item.id));
 
     const handlePrint = () => {
-        // Hanya panggil window.print()
+        // Logika untuk mencetak (hanya memanggil window.print)
         window.print();
     };
 
     // Data Dummy Lokasi (Sesuai Gambar)
     const locations = [
-        'Semua Ruangan', 'Ruang Camat', 'Pelayanan Umum', 'Sub Bagian Umum', 'Perpustakaan'
+        'Semua Ruangan', 'Kantor Pusat', 'Ruang Staf 1', 'Ruang Arsip', 'Gudang'
     ];
     
     // Untuk menampilkan simulasi data di tabel
-    const displayedItems = printableItems.filter(item => {
-        // Filter minimal agar tabel tidak terlalu kosong, 
-        // hanya menampilkan item yang kondisinya 'Baik' atau 'Kurang Baik'
-        return item.kondisi === 'Baik' || item.kondisi === 'Kurang Baik';
-    });
+    const displayedItems = printableItems; // Tampilkan semua yang bisa dicetak
 
 
     return (
@@ -265,7 +316,7 @@ const PrintLabelsContent = ({ dataItems }) => {
                 {/* Kolom Kiri: Pencarian dan Daftar Aset */}
                 <div className="flex-1 p-6 bg-white rounded-xl shadow-lg border border-gray-100">
                     <h2 className="text-xl font-semibold mb-4">
-                        Daftar Aset
+                        Daftar Aset KIB B Siap Cetak
                     </h2>
                     
                     {/* Area Filter (Dibuat mirip screenshot) */}
@@ -306,6 +357,7 @@ const PrintLabelsContent = ({ dataItems }) => {
                             className={`px-4 py-1 text-sm rounded-full transition-colors ${
                                 assetType === 'KIB E' ? `bg-${PRIMARY_COLOR}-600 text-white` : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                             }`}
+                            disabled // Dinonaktifkan karena data hanya KIB B
                         >
                             KIB E
                         </button>
@@ -315,9 +367,9 @@ const PrintLabelsContent = ({ dataItems }) => {
                     
                     {/* Tabel Pemilihan Aset */}
                     <div className="flex justify-between items-center mb-4">
-                           <p className="text-sm text-gray-600">
-                                Total Aset KIB Siap Cetak: <span className="font-bold text-lg">{printableItems.length}</span>
-                           </p>
+                               <p className="text-sm text-gray-600">
+                                   Total Aset KIB Siap Cetak: <span className="font-bold text-lg">{printableItems.length}</span>
+                               </p>
                     </div>
 
                     <div className="overflow-y-auto max-h-[400px] border border-gray-200 rounded-md">

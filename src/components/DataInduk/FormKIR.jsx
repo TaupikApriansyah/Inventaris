@@ -1,120 +1,284 @@
+// FormKIR.jsx
 import React, { useState, useEffect } from 'react';
-import { PRIMARY_COLOR } from '../constants';
+// Asumsi PRIMARY_COLOR sudah diimport dari constants
+// import { PRIMARY_COLOR } from '../constants'; 
+const PRIMARY_COLOR = 'indigo'; // Definisi dummy jika constants tidak ada
+
+// --- DATA DUMMY (Simulasi Data KIB B dan Ruangan dari Data Induk) ---
+const KIB_B_DATA_DUMMY = [
+    {
+        id: 101, 
+        nama_barang: 'Mobil Dinas Sedan', 
+        merek: 'Toyota Camry', 
+        tahun_perolehan: 2020, 
+        kode_barang: '1.03.01.02.001',
+        ukuran: '2500 CC', 
+        bahan: 'Besi/Logam',
+        harga_perolehan: 450000000,
+        no_seri_pabrik: 'PBRK001' // Digunakan sebagai No. Seri Pabrik KIR
+    },
+    {
+        id: 102, 
+        nama_barang: 'Komputer PC Staf', 
+        merek: 'HP ProDesk', 
+        tahun_perolehan: 2022, 
+        kode_barang: '1.03.02.04.005',
+        ukuran: 'Tower', 
+        bahan: 'Plastik/Logam',
+        harga_perolehan: 12000000,
+        no_seri_pabrik: 'PC-2022-005'
+    },
+    {
+        id: 103, 
+        nama_barang: 'Mesin Fotocopy Digital', 
+        merek: 'Canon iR', 
+        tahun_perolehan: 2021, 
+        kode_barang: '1.03.01.02.010',
+        ukuran: 'Heavy Duty', 
+        bahan: 'Logam',
+        harga_perolehan: 85000000,
+        no_seri_pabrik: 'MFP-C-010'
+    },
+];
+
+const RUANGAN_DATA_DUMMY = [
+    { id: 'R01', nama: 'Ruang Kepala Divisi' },
+    { id: 'R02', nama: 'Ruang Staf 1' },
+    { id: 'R03', nama: 'Ruang Arsip' },
+    // Dll.
+];
+// --------------------------------------------------------------------------
 
 const FormKIR = ({ onSave, onCancel }) => {
-    // State untuk menampung data input sesuai kolom di Gambar
+    const [selectedKibId, setSelectedKibId] = useState('');
     const [formData, setFormData] = useState({
-        jenis: 'KIR', // Penanda tipe data
+        // Field Baru
+        lokasi_ruangan: '', // Untuk dropdown Ruangan
+        
+        // Field KIB (diisi otomatis)
+        kib_id_sumber: '', // ID KIB sumber
         nama_barang: '',
         merek_model: '',
+        tahun_perolehan: new Date().getFullYear().toString(),
+        kode_barang: '',
+        
+        // Field Input KIR
+        jenis: 'KIR',
+        jumlah_barang: 1, // Input Number
+        keadaan_barang: 'Baik', // Dropdown
+        keterangan: '', // Textarea
+        
+        // Field lainnya (jika diperlukan untuk penyimpanan)
+        harga_perolehan: '',
         no_seri_pabrik: '',
         ukuran: '',
         bahan: '',
-        tahun_pembuatan: new Date().getFullYear(),
-        kode_barang: '',
-        no_register: '',
-        jumlah_barang: 1,
-        harga_perolehan: '',
-        keadaan_barang: 'Baik', // Pilihan: Baik, Kurang Baik, Rusak Berat
-        keterangan_mutasi: ''
     });
+
+    // --- useEffect untuk Mengisi Data Saat KIB Dipilih ---
+    useEffect(() => {
+        if (selectedKibId) {
+            const selectedItem = KIB_B_DATA_DUMMY.find(item => item.id === parseInt(selectedKibId));
+            if (selectedItem) {
+                setFormData(prev => ({
+                    ...prev,
+                    kib_id_sumber: selectedItem.id,
+                    nama_barang: selectedItem.nama_barang,
+                    merek_model: selectedItem.merek,
+                    tahun_perolehan: selectedItem.tahun_perolehan.toString(),
+                    kode_barang: selectedItem.kode_barang,
+                    harga_perolehan: selectedItem.harga_perolehan.toString(),
+                    no_seri_pabrik: selectedItem.no_seri_pabrik,
+                    ukuran: selectedItem.ukuran,
+                    bahan: selectedItem.bahan,
+                    // Reset jumlah dan kondisi saat barang baru dipilih
+                    jumlah_barang: 1, 
+                    keadaan_barang: 'Baik',
+                    keterangan: '',
+                }));
+            }
+        } else {
+            // Reset jika KIB tidak dipilih
+            setFormData(prev => ({
+                ...prev,
+                kib_id_sumber: '',
+                nama_barang: '',
+                merek_model: '',
+                tahun_perolehan: new Date().getFullYear().toString(),
+                kode_barang: '',
+                harga_perolehan: '',
+                no_seri_pabrik: '',
+                ukuran: '',
+                bahan: '',
+            }));
+        }
+    }, [selectedKibId]);
+
+
+    // --- Handlers ---
+    const handleKibSelect = (e) => {
+        setSelectedKibId(e.target.value);
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(formData);
+
+        if (!formData.lokasi_ruangan || !formData.kib_id_sumber) {
+            alert("Harap pilih Ruangan dan Barang KIB B terlebih dahulu.");
+            return;
+        }
+
+        // Simpan data. Kita menggunakan field yang telah disiapkan di DataIndukContent:
+        const dataToSave = {
+            nama_barang: formData.nama_barang,
+            merek_tipe: formData.merek_model, // Mapping merek_model ke merek_tipe
+            tahun_perolehan: formData.tahun_perolehan,
+            kode_barang: formData.kode_barang,
+            jumlah: formData.jumlah_barang, // Mapping jumlah_barang ke jumlah
+            kondisi: formData.keadaan_barang, // Mapping keadaan_barang ke kondisi
+            keterangan: formData.keterangan, // Mapping keterangan_mutasi ke keterangan
+            lokasi: formData.lokasi_ruangan, // Ruangan akan menjadi lokasi
+            harga_perolehan: formData.harga_perolehan,
+            
+            // Tambahkan data teknis lain agar disimpan di item:
+            no_seri: formData.no_seri_pabrik, 
+            ukuran: formData.ukuran, 
+            bahan: formData.bahan,
+            jenis: formData.jenis,
+        };
+
+        onSave(dataToSave);
     };
 
     return (
-        <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+        // DIHAPUS: bg-white, p-8, rounded-xl, shadow-lg, border border-gray-200
+        <div> 
             <h2 className={`text-2xl font-bold text-${PRIMARY_COLOR}-700 mb-6 border-b pb-2`}>
-                Input Data Kartu Inventaris Ruangan (KIR)
+                Input Data Kartu Inventaris Ruangan (KIR) Berdasarkan KIB B
             </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Baris 1: Identitas Barang */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+                
+                {/* Bagian 1: Pemilihan Sumber Data */}
+                {/* Diberi latar belakang agar input penting ini tetap menonjol */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md bg-gray-50">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Nama Barang / Jenis Barang</label>
-                        <input required name="nama_barang" type="text" value={formData.nama_barang} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="Contoh: Meja Kerja Kayu" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Merek / Model</label>
-                        <input name="merek_model" type="text" value={formData.merek_model} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="Contoh: Olympic / Tipe A" />
-                    </div>
-                </div>
-
-                {/* Baris 2: Spesifikasi Detail (Sesuai Gambar) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">No. Seri Pabrik</label>
-                        <input name="no_seri_pabrik" type="text" value={formData.no_seri_pabrik} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="-" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Ukuran</label>
-                        <input name="ukuran" type="text" value={formData.ukuran} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="Contoh: 120x60 cm" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Bahan</label>
-                        <input name="bahan" type="text" value={formData.bahan} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="Contoh: Kayu Jati" />
-                    </div>
-                </div>
-
-                {/* Baris 3: Kode & Tahun */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Tahun Pembuatan/Beli</label>
-                        <input required name="tahun_pembuatan" type="number" value={formData.tahun_pembuatan} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Nomor Kode Barang</label>
-                        <input required name="kode_barang" type="text" value={formData.kode_barang} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="xx.xx.xx.xx" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">No. Register</label>
-                        <input name="no_register" type="text" value={formData.no_register} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" placeholder="0001" />
-                    </div>
-                </div>
-
-                {/* Baris 4: Jumlah & Harga */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Jumlah Barang</label>
-                        <input required name="jumlah_barang" type="number" min="1" value={formData.jumlah_barang} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Harga Beli / Perolehan (Rp)</label>
-                        <input required name="harga_perolehan" type="number" value={formData.harga_perolehan} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" />
-                    </div>
-                </div>
-
-                {/* Baris 5: Keadaan & Mutasi */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Keadaan Barang</label>
-                        <select name="keadaan_barang" value={formData.keadaan_barang} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2">
-                            <option value="Baik">Baik (B)</option>
-                            <option value="Kurang Baik">Kurang Baik (KB)</option>
-                            <option value="Rusak Berat">Rusak Berat (RB)</option>
+                        <label className="block text-sm font-bold text-gray-800">1. Pilih Ruangan <span className="text-red-500">*</span></label>
+                        <select 
+                            required 
+                            name="lokasi_ruangan" 
+                            value={formData.lokasi_ruangan} 
+                            onChange={handleChange} 
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white"
+                        >
+                            <option value="">-- Pilih Lokasi Ruangan --</option>
+                            {RUANGAN_DATA_DUMMY.map(r => (
+                                <option key={r.id} value={r.nama}>{r.nama}</option>
+                            ))}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Keterangan Mutasi</label>
-                        <textarea name="keterangan_mutasi" value={formData.keterangan_mutasi} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" rows="2" placeholder="Ket. Mutasi dll..."></textarea>
+                        <label className="block text-sm font-bold text-gray-800">2. Pilih Barang KIB B <span className="text-red-500">*</span></label>
+                        <select 
+                            required 
+                            value={selectedKibId} 
+                            onChange={handleKibSelect} 
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white"
+                        >
+                            <option value="">-- Pilih Aset KIB B --</option>
+                            {KIB_B_DATA_DUMMY.map(item => (
+                                <option key={item.id} value={item.id}>{item.nama_barang} ({item.kode_barang})</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
+
+                {/* Bagian 2: Data Otomatis (Readonly) dari KIB B */}
+                <h3 className="text-lg font-semibold text-gray-700 pt-4 border-t">Data Aset KIB B (Terisi Otomatis)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Merk/Type</label>
+                        <input readOnly value={formData.merek_model || '-'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-gray-100 text-gray-600" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Tahun Perolehan</label>
+                        <input readOnly value={formData.tahun_perolehan || '-'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-gray-100 text-gray-600" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Kode Barang</label>
+                        <input readOnly value={formData.kode_barang || '-'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-gray-100 text-gray-600" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Nama Barang</label>
+                        <input readOnly value={formData.nama_barang || '-'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-gray-100 text-gray-600" />
+                    </div>
+                </div>
+
+                {/* Bagian 3: Input Khusus KIR */}
+                <h3 className="text-lg font-semibold text-gray-700 pt-4 border-t">Input Detail Inventaris Ruangan</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Jumlah Barang (di Ruangan ini)</label>
+                        <input 
+                            required 
+                            name="jumlah_barang" 
+                            type="number" 
+                            min="1" 
+                            value={formData.jumlah_barang} 
+                            onChange={handleChange} 
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" 
+                            disabled={!selectedKibId} // Nonaktif jika KIB belum dipilih
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Kondisi Barang</label>
+                        <select 
+                            name="keadaan_barang" 
+                            value={formData.keadaan_barang} 
+                            onChange={handleChange} 
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2"
+                            disabled={!selectedKibId}
+                        >
+                            <option value="Baik">Baik</option>
+                            <option value="Kurang Baik">Kurang Baik</option>
+                            <option value="Rusak Berat">Rusak Berat</option>
+                        </select>
+                    </div>
+                    <div className="md:col-span-1">
+                        <label className="block text-sm font-medium text-gray-700">Harga Perolehan (Readonly)</label>
+                        <input readOnly value={formData.harga_perolehan ? `Rp ${Number(formData.harga_perolehan).toLocaleString('id-ID')}` : '-'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 bg-gray-100 text-gray-600" />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Keterangan (Mutasi/Lainnya)</label>
+                    <textarea 
+                        name="keterangan" 
+                        value={formData.keterangan} 
+                        onChange={handleChange} 
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2" 
+                        rows="2" 
+                        placeholder="Tambahkan keterangan spesifik untuk inventaris ruangan ini..."
+                        disabled={!selectedKibId}
+                    ></textarea>
+                </div>
+
 
                 {/* Tombol Aksi */}
                 <div className="flex justify-end space-x-3 pt-6 border-t mt-4">
                     <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">Batal</button>
-                    <button type="submit" className={`px-6 py-2 bg-${PRIMARY_COLOR}-600 text-white rounded-lg hover:bg-${PRIMARY_COLOR}-700 shadow-md transition`}>Simpan Data KIR</button>
+                    <button 
+                        type="submit" 
+                        disabled={!formData.lokasi_ruangan || !selectedKibId}
+                        className={`px-6 py-2 bg-${PRIMARY_COLOR}-600 text-white rounded-lg hover:bg-${PRIMARY_COLOR}-700 shadow-md transition disabled:bg-gray-400`}
+                    >
+                        Simpan KIR
+                    </button>
                 </div>
             </form>
         </div>
